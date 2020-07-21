@@ -8,6 +8,8 @@ const int thermistorNominal     = 100000;
 const int numSamples            = 5;
 const int seriesResistor        = 5000;
 
+const int setTemperature        = 35;
+
 int samples[numSamples];
 
 void setup() {
