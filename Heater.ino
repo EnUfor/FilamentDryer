@@ -9,16 +9,35 @@ const int numSamples            = 5;
 const int seriesResistor        = 5000;
 
 const int setTemperature        = 35;
+float currentTemperature        = 0;
+
+// PID related
+float previousError             = 0;
+float PIDError                  = 0;
+int PIDValue                    = 0;
+float elapsedTime, Time, timePrev;
+
+int kp = 83.48; int ki = 8.15;  int kd = 213.72;
+int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
+
+// #define DEFAULT_bedKp 83.48  
+// #define DEFAULT_bedKi 8.15 
+// #define DEFAULT_bedKd 213.72
+
+
 
 int samples[numSamples];
 
 void setup() {
     Serial.begin(9600);
-    // analogReference(EXTERNAL);  // Use 3.3V for reference voltage  
+
+    pinMode(THERMISTORPIN, OUTPUT);
+    // analogReference(EXTERNAL);  // Use 3.3V for reference voltage
+    Time = millis();  
 }
 
 void loop() {
-    uint8_t i;
+    // uint8_t i;
     float average = 0;
 
     for(int i = 0; i < numSamples; i++) {
