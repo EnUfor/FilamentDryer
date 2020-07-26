@@ -2,7 +2,8 @@
 
 #include ".\thermistor_1.h"
 
-#define THERMISTORPIN A0
+#define THERMISTORPIN   A0
+#define SSRPIN          7
 
 const int thermistorNominal     = 100000;
 const int numSamples            = 5;
@@ -25,16 +26,14 @@ int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 // #define DEFAULT_bedKd 213.72
 
 
-
-int samples[numSamples];
-
 void setup() {
     Serial.begin(9600);
 
-    pinMode(THERMISTORPIN, OUTPUT);
+    pinMode(SSRPIN, OUTPUT);
     // analogReference(EXTERNAL);  // Use 3.3V for reference voltage
     Time = millis();  
 }
+
 
 void loop() {
     // uint8_t i;
