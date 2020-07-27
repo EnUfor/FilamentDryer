@@ -36,7 +36,15 @@ void setup() {
 
 
 void loop() {
-    // uint8_t i;
+    currentTemperature = readTemperature();
+
+    delay(1000);
+    Serial.println();
+
+    
+}
+
+double readTemperature() {
     float average = 0;
 
     for(int i = 0; i < numSamples; i++) {
@@ -70,11 +78,6 @@ void loop() {
 
     double y = linearInterpolate(average, temptable, numRows);
     Serial.print("y: ");Serial.println(y);
-
-    delay(1000);
-    Serial.println();
-
-    
 }
 
 double linearInterpolate(double x, const short table[][2], int numRows) {
