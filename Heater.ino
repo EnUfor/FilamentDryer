@@ -19,7 +19,7 @@ float PIDError                  = 0;
 int PIDValue                    = 0;
 float elapsedTime, Time, timePrev;
 
-int kp = 83.48; int ki = 8.15;  int kd = 213.72;
+int kp = 140; int ki = 2;  int kd = 500;
 int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 
 // #define DEFAULT_bedKp 83.48  
@@ -28,7 +28,7 @@ int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 
 unsigned long previousMillis    = 0;
 unsigned long currentMillis     = 0;
-int tempReadDelay               = 500;
+int tempReadDelay               = 1500;
 
 int heatingTime                 = 1000;
 
@@ -44,13 +44,14 @@ void setup() {
 
 
 void loop() {
-    setTemperature = analogRead(TEMPDIAL);
-    setTemperature = map(setTemperature, 0, 1023, 0, 100);
-    Serial.print("setTemperature: ");Serial.println(setTemperature);
+    
     
     currentMillis = millis();
 
     if(currentMillis - previousMillis >= tempReadDelay) {
+        setTemperature = analogRead(TEMPDIAL);
+        setTemperature = map(setTemperature, 0, 1023, 0, 100);
+        Serial.print("setTemperature: ");Serial.println(setTemperature);
         previousMillis = currentMillis;
 
         currentTemperature = readTemperature();
@@ -69,6 +70,11 @@ void loop() {
 
         previousError = PIDError;
 
+        if(currentTemperature > setTemperature) {
+            PIDValue = 0;
+            PID_i = 0;
+        }
+
         if(PIDValue > heatingTime) {
             PIDValue = heatingTime;
             PID_i = 0;
@@ -78,25 +84,27 @@ void loop() {
             PID_i = 0;
         }
 
-        Serial.print("PIDValue: ");Serial.println(PIDValue);
+        // Serial.print("PIDValue: ");Serial.println(PIDValue);
+
+        int offTime = heatingTime - PIDValue;
+
+        Serial.print("On Time: ");Serial.print(PIDValue);
+        Serial.print("     Off Time: "); Serial.println(offTime);
+
+        if(offTime > 0) {
+            digitalWrite(SSRPIN, LOW);
+            delay(offTime);
+        }
+        if(PIDValue > 10) {
+            digitalWrite(SSRPIN, HIGH);
+            delay(PIDValue);
+        }
+
+        //delay(1000);
+        Serial.println();
     }
 
-    int offTime = heatingTime - PIDValue;
-
-    Serial.print("On Time: ");Serial.println(PIDValue);
-    Serial.print("Off Time: "); Serial.println(offTime);
-
-    if(offTime > 0) {
-        digitalWrite(SSRPIN, LOW);
-        delay(offTime);
-    }
-    if(PIDValue > 0) {
-        digitalWrite(SSRPIN, HIGH);
-        delay(PIDValue);
-    }
-
-    //delay(1000);
-    Serial.println();
+    
 
     
 }
