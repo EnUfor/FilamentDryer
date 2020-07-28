@@ -3,13 +3,14 @@
 #include ".\thermistor_1.h"
 
 #define THERMISTORPIN   A0
-#define SSRPIN          7
+#define SSRPIN          8
+#define TEMPDIAL        A1
 
 const int thermistorNominal     = 100000;
 const int numSamples            = 5;
 const int seriesResistor        = 5000;
 
-const int setTemperature        = 35;
+int setTemperature              = 0;
 float currentTemperature        = 0;
 
 // PID related
@@ -25,26 +26,85 @@ int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 // #define DEFAULT_bedKi 8.15 
 // #define DEFAULT_bedKd 213.72
 
+unsigned long previousMillis    = 0;
+unsigned long currentMillis     = 0;
+int tempReadDelay               = 500;
+
+int heatingTime                 = 1000;
 
 void setup() {
     Serial.begin(9600);
 
+    pinMode(TEMPDIAL, INPUT);
     pinMode(SSRPIN, OUTPUT);
+    digitalWrite(SSRPIN, LOW);
     // analogReference(EXTERNAL);  // Use 3.3V for reference voltage
     Time = millis();  
 }
 
 
 void loop() {
-    currentTemperature = readTemperature();
+    setTemperature = analogRead(TEMPDIAL);
+    setTemperature = map(setTemperature, 0, 1023, 0, 100);
+    Serial.print("setTemperature: ");Serial.println(setTemperature);
+    
+    currentMillis = millis();
 
-    delay(1000);
+    if(currentMillis - previousMillis >= tempReadDelay) {
+        previousMillis = currentMillis;
+
+        currentTemperature = readTemperature();
+
+        PIDError = setTemperature - currentTemperature;     // Calculate PID error
+
+        PID_p = kp * PIDError;                              // Calculate P value
+        PID_i = PID_i + (ki * PIDError);                    // Calculate I value
+
+        timePrev = Time;
+        Time = millis();
+        elapsedTime = (Time - timePrev) / 1000;
+
+        PID_d = kd * ((PIDError - previousError) / elapsedTime);    // Calculate D value
+        PIDValue = PID_p + PID_i + PID_d;
+
+        previousError = PIDError;
+
+        if(PIDValue > heatingTime) {
+            PIDValue = heatingTime;
+            PID_i = 0;
+        }
+        if(PIDValue < 0) {
+            PIDValue = 0;
+            PID_i = 0;
+        }
+
+        Serial.print("PIDValue: ");Serial.println(PIDValue);
+    }
+
+    int offTime = heatingTime - PIDValue;
+
+    Serial.print("On Time: ");Serial.println(PIDValue);
+    Serial.print("Off Time: "); Serial.println(offTime);
+
+    if(offTime > 0) {
+        digitalWrite(SSRPIN, LOW);
+        delay(offTime);
+    }
+    if(PIDValue > 0) {
+        digitalWrite(SSRPIN, HIGH);
+        delay(PIDValue);
+    }
+
+    //delay(1000);
     Serial.println();
 
     
 }
-
-double readTemperature() {
+/**
+ * Takes an average reading of thermistor.
+ * @return {double} y - Interpolated temperature reading.
+ */ 
+float readTemperature() {
     float average = 0;
 
     for(int i = 0; i < numSamples; i++) {
@@ -53,9 +113,8 @@ double readTemperature() {
     }
     average /= numSamples;
 
-
-    Serial.print("Average analog reading: ");
-    Serial.println(average);
+    // Serial.print("Average analog reading: ");
+    // Serial.println(average);
 
     // // Convert value to resistance
     // average = (1023 / average) - 1;
@@ -76,15 +135,23 @@ double readTemperature() {
     // Serial.print("Number of rows = ");Serial.println(numRows);
     // Serial.print("Number of cols = ");Serial.println(numCols);
 
-    double y = linearInterpolate(average, temptable, numRows);
+    float y = linearInterpolate(average, temptable, numRows);
     Serial.print("y: ");Serial.println(y);
+
+    return y;
 }
 
-double linearInterpolate(double x, const short table[][2], int numRows) {
+/**
+ * Linear interpolate a value using a table for lookup.
+ * @param {double} x - X value to interpolate to.
+ * @param {short} table - Table containing lookup values.
+ * @param {int} numRows - Number of rows in table.
+ */
+float linearInterpolate(double x, const short table[][2], int numRows) {
     // numRows must be submitted as an argument since table is a pointer
     // therefore sizeof(table) will always be 2, causing errors
     
-    double x0, x1, y0, y1, y;
+    float x0, x1, y0, y1, y;
 
     // TODO: Add code that if a value doesn't match (1023 or 0), proper flags are raised
 
@@ -97,10 +164,10 @@ double linearInterpolate(double x, const short table[][2], int numRows) {
         }
     }
 
-    Serial.print("x0: ");Serial.print(x0);
-    Serial.print(" y0: ");Serial.println(y0);
-    Serial.print("x1: ");Serial.print(x1);
-    Serial.print(" y1: ");Serial.println(y1);
+    // Serial.print("x0: ");Serial.print(x0);
+    // Serial.print(" y0: ");Serial.println(y0);
+    // Serial.print("x1: ");Serial.print(x1);
+    // Serial.print(" y1: ");Serial.println(y1);
 
     return y0 + ((y1 - y0) / (x1 - x0)) * (x - x0);
 
