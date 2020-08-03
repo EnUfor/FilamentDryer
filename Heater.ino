@@ -1,25 +1,21 @@
 // 4.Use a multimeter to measure the resistance of the hot-bed terminal. 220V is usually 96.8Ω; 110V is usually 24.2Ω.
 
-#include ".\thermistor_1.h"
+#include <Relay.h>              // Relay duty cycle control library
+#include <PID_v1.h>             // PID library
+#include ".\thermistor_1.h"     // Thermistor temp / resistance table
+
 
 #define THERMISTORPIN   A0
 #define SSRPIN          8
 #define TEMPDIAL        A1
 
-const int thermistorNominal     = 100000;
 const int numSamples            = 5;
-const int seriesResistor        = 5000;
 
-int setTemperature              = 0;
-float currentTemperature        = 0;
+double setTemperature, currentTemperature, dutyCycle;
 
-// PID related
-float previousError             = 0;
-float PIDError                  = 0;
-int PIDValue                    = 0;
-float elapsedTime, Time, timePrev;
+float Time;
 
-int kp = 140; int ki = 2;  int kd = 500;
+double Kp = 150; int Ki = 4;  int Kd = 300;
 int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 
 // #define DEFAULT_bedKp 83.48  
@@ -28,9 +24,13 @@ int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 
 unsigned long previousMillis    = 0;
 unsigned long currentMillis     = 0;
-int tempReadDelay               = 1500;
+int relayPeriod               = 1;
 
-int heatingTime                 = 1000;
+
+
+PID pid(&currentTemperature, &dutyCycle, &setTemperature, Kp, Ki, Kd, DIRECT);
+
+Relay SSR(SSRPIN, relayPeriod);
 
 void setup() {
     Serial.begin(9600);
@@ -48,7 +48,7 @@ void loop() {
     
     currentMillis = millis();
 
-    if(currentMillis - previousMillis >= tempReadDelay) {
+    if(currentMillis - previousMillis >= relayPeriod) {
         setTemperature = analogRead(TEMPDIAL);
         setTemperature = map(setTemperature, 0, 1023, 0, 100);
         Serial.print("setTemperature: ");Serial.println(setTemperature);
@@ -56,51 +56,6 @@ void loop() {
 
         currentTemperature = readTemperature();
 
-        PIDError = setTemperature - currentTemperature;     // Calculate PID error
-
-        PID_p = kp * PIDError;                              // Calculate P value
-        PID_i = PID_i + (ki * PIDError);                    // Calculate I value
-
-        timePrev = Time;
-        Time = millis();
-        elapsedTime = (Time - timePrev) / 1000;
-
-        PID_d = kd * ((PIDError - previousError) / elapsedTime);    // Calculate D value
-        PIDValue = PID_p + PID_i + PID_d;
-
-        previousError = PIDError;
-
-        if(currentTemperature > setTemperature) {
-            PIDValue = 0;
-            PID_i = 0;
-        }
-
-        if(PIDValue > heatingTime) {
-            PIDValue = heatingTime;
-            PID_i = 0;
-        }
-        if(PIDValue < 0) {
-            PIDValue = 0;
-            PID_i = 0;
-        }
-
-        // Serial.print("PIDValue: ");Serial.println(PIDValue);
-
-        int offTime = heatingTime - PIDValue;
-
-        Serial.print("On Time: ");Serial.print(PIDValue);
-        Serial.print("     Off Time: "); Serial.println(offTime);
-
-        if(offTime > 0) {
-            digitalWrite(SSRPIN, LOW);
-            delay(offTime);
-        }
-        if(PIDValue > 10) {
-            digitalWrite(SSRPIN, HIGH);
-            delay(PIDValue);
-        }
-
-        //delay(1000);
         Serial.println();
     }
 
@@ -125,6 +80,7 @@ float readTemperature() {
     // Serial.println(average);
 
     // // Convert value to resistance
+    // const int seriesResistor = 5000;
     // average = (1023 / average) - 1;
     // average = seriesResistor / average;   
     // Serial.print("Average thermistor resistance: ");
