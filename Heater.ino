@@ -13,9 +13,7 @@ const int numSamples            = 5;
 
 double setTemperature, currentTemperature, dutyCycle;
 
-float Time;
-
-double Kp = 150; int Ki = 4;  int Kd = 300;
+double Kp = 1; int Ki = 0;  int Kd = 10;
 int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 
 // #define DEFAULT_bedKp 83.48  
@@ -24,8 +22,7 @@ int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 
 unsigned long previousMillis    = 0;
 unsigned long currentMillis     = 0;
-int relayPeriod               = 1;
-
+int relayPeriod                 = 2;
 
 
 PID pid(&currentTemperature, &dutyCycle, &setTemperature, Kp, Ki, Kd, DIRECT);
@@ -33,36 +30,42 @@ PID pid(&currentTemperature, &dutyCycle, &setTemperature, Kp, Ki, Kd, DIRECT);
 Relay SSR(SSRPIN, relayPeriod);
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
+
+    pid.SetOutputLimits(0, 1);
+    pid.SetMode(AUTOMATIC);    
+    SSR.setRelayMode(relayModeAutomatic);
 
     pinMode(TEMPDIAL, INPUT);
     pinMode(SSRPIN, OUTPUT);
     digitalWrite(SSRPIN, LOW);
     // analogReference(EXTERNAL);  // Use 3.3V for reference voltage
-    Time = millis();  
 }
 
 
 void loop() {
-    
-    
-    currentMillis = millis();
 
-    if(currentMillis - previousMillis >= relayPeriod) {
-        setTemperature = analogRead(TEMPDIAL);
-        setTemperature = map(setTemperature, 0, 1023, 0, 100);
-        Serial.print("setTemperature: ");Serial.println(setTemperature);
-        previousMillis = currentMillis;
+    // setTemperature = analogRead(TEMPDIAL);
+    setTemperature = map(analogRead(TEMPDIAL), 0, 1023, 0, 100);
+    Serial.print("setTemperature: ");Serial.println(setTemperature);
 
-        currentTemperature = readTemperature();
+    currentTemperature = readTemperature();
+    Serial.print("currentTemperature: ");Serial.println(currentTemperature);
 
-        Serial.println();
-    }
+    pid.Compute();
+    Serial.print("dutyCycle: ");Serial.println(dutyCycle);
+    // Serial.print("Kp: ");Serial.print(pid.GetKp());Serial.print(" Ki: ");Serial.print(pid.GetKi());Serial.print(" Kd: :");Serial.println(pid.GetKd());
 
-    
+    SSR.loop();
+    SSR.setDutyCyclePercent(dutyCycle);
+
+    Serial.println();
+
+    delay(100);
 
     
 }
+
 /**
  * Takes an average reading of thermistor.
  * @return {double} y - Interpolated temperature reading.
@@ -100,7 +103,7 @@ float readTemperature() {
     // Serial.print("Number of cols = ");Serial.println(numCols);
 
     float y = linearInterpolate(average, temptable, numRows);
-    Serial.print("y: ");Serial.println(y);
+    // Serial.print("y: ");Serial.println(y);
 
     return y;
 }
