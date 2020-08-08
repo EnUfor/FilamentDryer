@@ -13,8 +13,7 @@ const int numSamples            = 5;
 
 double setTemperature, currentTemperature, dutyCycle;
 
-double Kp = 1; int Ki = 0;  int Kd = 10;
-int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
+double Kp = .08; double Ki = .0001;  double Kd = .0002;
 
 // #define DEFAULT_bedKp 83.48  
 // #define DEFAULT_bedKi 8.15 
@@ -22,7 +21,7 @@ int PID_p = 0;  int PID_i = 0;  int PID_d = 0;
 
 unsigned long previousMillis    = 0;
 unsigned long currentMillis     = 0;
-int relayPeriod                 = 2;
+int relayPeriod                 = 1;
 
 
 PID pid(&currentTemperature, &dutyCycle, &setTemperature, Kp, Ki, Kd, DIRECT);
@@ -31,14 +30,23 @@ Relay SSR(SSRPIN, relayPeriod);
 
 void setup() {
     Serial.begin(115200);
+    delay(1000);
+    Serial.println("THESE ARE THE COEFFICIENTS:");
+    Serial.print(Kp, 3);
+    Serial.print(" ");
+    Serial.print(Ki, 3);
+    Serial.print(" ");
+    Serial.println(Kd, 3);
+
+    delay(2000);
 
     pid.SetOutputLimits(0, 1);
     pid.SetMode(AUTOMATIC);    
     SSR.setRelayMode(relayModeAutomatic);
 
     pinMode(TEMPDIAL, INPUT);
-    pinMode(SSRPIN, OUTPUT);
-    digitalWrite(SSRPIN, LOW);
+    // pinMode(SSRPIN, OUTPUT);
+    // digitalWrite(SSRPIN, LOW);
     // analogReference(EXTERNAL);  // Use 3.3V for reference voltage
 }
 
@@ -46,22 +54,30 @@ void setup() {
 void loop() {
 
     // setTemperature = analogRead(TEMPDIAL);
-    setTemperature = map(analogRead(TEMPDIAL), 0, 1023, 0, 100);
-    Serial.print("setTemperature: ");Serial.println(setTemperature);
+    setTemperature = map(analogRead(TEMPDIAL), 0, 1023, 0, 1000.0) / 10.0;
+    
 
     currentTemperature = readTemperature();
-    Serial.print("currentTemperature: ");Serial.println(currentTemperature);
+    
 
     pid.Compute();
-    Serial.print("dutyCycle: ");Serial.println(dutyCycle);
-    // Serial.print("Kp: ");Serial.print(pid.GetKp());Serial.print(" Ki: ");Serial.print(pid.GetKi());Serial.print(" Kd: :");Serial.println(pid.GetKd());
+    // Serial.print("setTemperature: ");Serial.println(setTemperature);
+    // Serial.print("currentTemperature: ");Serial.println(currentTemperature);
+    // Serial.print("dutyCycle: ");Serial.println(dutyCycle);
+
+    // Trim off unecessary on/off cycle
+    if(dutyCycle <= .05) dutyCycle = 0;
+    if(dutyCycle >= .95) dutyCycle = 1;
+
+    Serial.println( (String)setTemperature + " " + (String)currentTemperature + " " + (String)dutyCycle);
+
 
     SSR.loop();
     SSR.setDutyCyclePercent(dutyCycle);
 
-    Serial.println();
+    // Serial.println();
 
-    delay(100);
+    // delay(500);
 
     
 }
