@@ -4,29 +4,21 @@
 #include <PID_v1.h>             // PID library
 #include ".\thermistor_1.h"     // Thermistor temp / resistance table
 
-
+// Pin assignments
 #define THERMISTORPIN   A0
 #define SSRPIN          8
 #define TEMPDIAL        A1
 
-const int numSamples            = 5;
+#define RELAYPERIOD     1
+#define NUMSAMPLES      5
 
+// PID related variables
 double setTemperature, currentTemperature, dutyCycle;
+double Kp = .08; double Ki = .0001;  double Kd = .002;
 
-double Kp = .08; double Ki = .0001;  double Kd = .0002;
-
-// #define DEFAULT_bedKp 83.48  
-// #define DEFAULT_bedKi 8.15 
-// #define DEFAULT_bedKd 213.72
-
-unsigned long previousMillis    = 0;
-unsigned long currentMillis     = 0;
-int relayPeriod                 = 1;
-
-
+// Initialize pid and SSR objects
 PID pid(&currentTemperature, &dutyCycle, &setTemperature, Kp, Ki, Kd, DIRECT);
-
-Relay SSR(SSRPIN, relayPeriod);
+Relay SSR(SSRPIN, RELAYPERIOD);
 
 void setup() {
     Serial.begin(115200);
@@ -52,34 +44,20 @@ void setup() {
 
 
 void loop() {
-
-    // setTemperature = analogRead(TEMPDIAL);
     setTemperature = map(analogRead(TEMPDIAL), 0, 1023, 0, 1000.0) / 10.0;
-    
 
     currentTemperature = readTemperature();
-    
 
     pid.Compute();
-    // Serial.print("setTemperature: ");Serial.println(setTemperature);
-    // Serial.print("currentTemperature: ");Serial.println(currentTemperature);
-    // Serial.print("dutyCycle: ");Serial.println(dutyCycle);
 
     // Trim off unecessary on/off cycle
-    if(dutyCycle <= .05) dutyCycle = 0;
+    // if(dutyCycle <= .05) dutyCycle = 0;
     if(dutyCycle >= .95) dutyCycle = 1;
 
     Serial.println( (String)setTemperature + " " + (String)currentTemperature + " " + (String)dutyCycle);
 
-
     SSR.loop();
-    SSR.setDutyCyclePercent(dutyCycle);
-
-    // Serial.println();
-
-    // delay(500);
-
-    
+    SSR.setDutyCyclePercent(dutyCycle);    
 }
 
 /**
@@ -89,11 +67,11 @@ void loop() {
 float readTemperature() {
     float average = 0;
 
-    for(int i = 0; i < numSamples; i++) {
+    for(int i = 0; i < NUMSAMPLES; i++) {
         average += analogRead(THERMISTORPIN);
         delay(10);
     }
-    average /= numSamples;
+    average /= NUMSAMPLES;
 
     // Serial.print("Average analog reading: ");
     // Serial.println(average);
@@ -108,9 +86,9 @@ float readTemperature() {
 
     // 
     // Since our array contains entities of type 'short' (16 bits or 2 bytes each),
-    // sizeof(temptable[0][0]) represents the size of a single entity in the array (2 bytes),
-    // sizeof(temptable[0]) represents the size of a single row of our array (4 bytes),
     // sizeof(temptable) represents the size of the entire array (256 bytes).
+    // sizeof(temptable[0]) represents the size of a single row of our array (4 bytes),
+    // sizeof(temptable[0][0]) represents the size of a single entity in the array (2 bytes),
     //
     
     int numRows = sizeof(temptable)/sizeof(temptable[0]);
@@ -118,10 +96,7 @@ float readTemperature() {
     // Serial.print("Number of rows = ");Serial.println(numRows);
     // Serial.print("Number of cols = ");Serial.println(numCols);
 
-    float y = linearInterpolate(average, temptable, numRows);
-    // Serial.print("y: ");Serial.println(y);
-
-    return y;
+    return linearInterpolate(average, temptable, numRows);
 }
 
 /**
