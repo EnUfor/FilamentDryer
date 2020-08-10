@@ -1,0 +1,6 @@
+{
+    "sketch": "Heater.ino",
+    "board": "arduino:avr:uno",
+    "port": "COM5",
+    "output": "../ArduinoOutput"
+}
